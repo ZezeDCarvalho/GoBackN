@@ -1,4 +1,3 @@
-
 package envio;
 
 /**
@@ -16,6 +15,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.concurrent.Semaphore;
 
+import java.net.SocketTimeoutException;
+
 public class EnviaDados extends Thread {
 
     private final int portaLocalEnvio = 2000;
@@ -23,7 +24,9 @@ public class EnviaDados extends Thread {
     private final int portaLocalRecebimento = 2003;
     Semaphore sem;
     private final String funcao;
+    private final int tempoTimeout = 1000;
     private int cabecalho = 0;
+    private String ultimoAck = "0";
 
     public EnviaDados(Semaphore sem, String funcao) {
         super(funcao);
@@ -60,6 +63,47 @@ public class EnviaDados extends Thread {
         } catch (IOException | InterruptedException ex) {
             Logger.getLogger(EnviaDados.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+    
+    private void reEnviaPct(String idAck) {
+        //variavel onde os dados lidos serao gravados
+                int[] dados = new int[350];
+                //contador, para gerar pacotes com 1400 Bytes de tamanho
+                //como cada int ocupa 4 Bytes, estamos lendo blocos com 350
+                //int's por vez.
+                int cont = 0;
+
+                try (FileInputStream fileInput = new FileInputStream("entrada");) {
+                    int lido;
+                    while ((lido = fileInput.read()) != -1) {
+                        if (cont == 0){
+                            dados[cont++] = ++cabecalho;
+                        }
+                        dados[cont] = lido;
+                        cont++;
+                        if (cont == 350) {
+                            //envia pacotes a cada 350 int's lidos.
+                            //ou seja, 1400 Bytes.
+                            if (Integer.toString(this.cabecalho).equals(idAck)) {
+                                System.out.println("Re-enviando pacote: "+this.cabecalho);
+                                enviaPct(dados);
+                                break;
+                            }
+                            cont = 0;
+                        }
+                    }
+
+                    //ultimo pacote eh preenchido com
+                    //-1 ate o fim, indicando que acabou
+                    //o envio dos dados.
+                    for (int i = cont; i < 350; i++) {
+                        dados[i] = -1;
+                    }
+                    System.out.println("Sequência: "+cabecalho);
+                    enviaPct(dados);
+                } catch (IOException e) {
+                    System.out.println("Error message: " + e.getMessage());
+                }
     }
 
     @Override
@@ -103,26 +147,34 @@ public class EnviaDados extends Thread {
                     System.out.println("Error message: " + e.getMessage());
                 }
                 break;
-            case "ack":
-                try {
-                    DatagramSocket serverSocket = new DatagramSocket(portaLocalRecebimento);
-                    byte[] receiveData = new byte[1];
-                    String retorno = "";
-                    while (!retorno.equals("F")) {
-                        DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
-                        serverSocket.receive(receivePacket);
-                        retorno = new String(receivePacket.getData());
-                        System.out.println("Ack recebido " + retorno + ".");
-                        sem.release();
-                    }
-                } catch (IOException e) {
-                    System.out.println("Excecao: " + e.getMessage());
-                }
-                break;
-            //TODO timer
-            default:
-                break;
-        }
-
+		case "ack":
+		try {
+			DatagramSocket serverSocket = new DatagramSocket(portaLocalRecebimento);
+			byte[] receiveData = new byte[4];
+			String retorno = "";
+                        serverSocket.setSoTimeout(tempoTimeout);
+			while (!retorno.equals("F")) {
+                            DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+                            try {
+                                serverSocket.receive(receivePacket);
+                                retorno = new String(receivePacket.getData());
+                                System.out.println("Ack recebido "+ retorno +".");
+                                //serverSocket.setSoTimeout(0);
+                                ultimoAck = retorno;
+                                sem.release();
+                            } catch (SocketTimeoutException e){
+                                System.out.println("Timeout. Último ACK recebido: " + ultimoAck);
+                                sem.release();
+                                reEnviaPct(ultimoAck);
+                            }
+			}
+		} catch (IOException e) {
+			System.out.println("Excecao: " + e.getMessage());
+		}	break;
+	//TODO timer
+		default:
+		break;
+	}
+                
     }
 }
