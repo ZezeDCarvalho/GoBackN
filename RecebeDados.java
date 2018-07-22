@@ -24,17 +24,16 @@ public class RecebeDados extends Thread {
     private final int portaLocalReceber = 2001;
     private final int portaLocalEnviar = 2002;
     private final int portaDestino = 2003;
-    private final double probalidadePerdaPct = 0.00;
+    private final double probalidadePerdaPct = 0.9;
     private Random aleatorio = new Random();
 
-    private void enviaAck(boolean fim) {
-
+    private void enviaAck(boolean fim, int cabecalho) {
         try {
             InetAddress address = InetAddress.getByName("localhost");
             try (DatagramSocket datagramSocket = new DatagramSocket(portaLocalEnviar)) {
-                String sendString = "A";
+                String sendString = Integer.toString(cabecalho);
                 if (fim) {
-                    sendString = "F";
+                    sendString = "-1";
                 }
                 byte[] sendData = sendString.getBytes();
 
@@ -58,7 +57,6 @@ public class RecebeDados extends Thread {
             try (FileOutputStream fileOutput = new FileOutputStream("saida")) {
                 boolean fim = false;
                 while (!fim) {
-
                     double probabilidade = aleatorio.nextDouble();
                     if (probalidadePerdaPct <= probabilidade) {
                         DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
@@ -86,8 +84,13 @@ public class RecebeDados extends Thread {
                             }
                             fileOutput.write(dados);
                         }
-                        enviaAck(fim);
+                        enviaAck(fim, cabecalho);
+                        continue;
+                    } else {
+                        System.out.println("dado não recebido");
+                        continue;
                     }
+                        
                 }
             }
         } catch (IOException e) {
