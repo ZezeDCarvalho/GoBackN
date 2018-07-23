@@ -33,7 +33,7 @@ public class RecebeDados extends Thread {
             try (DatagramSocket datagramSocket = new DatagramSocket(portaLocalEnviar)) {
                 String sendString = Integer.toString(cabecalho);
                 if (fim) {
-                    sendString = "F.";
+                    sendString = "-1";
                 }
                 byte[] sendData = sendString.getBytes();
 

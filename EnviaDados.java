@@ -26,7 +26,7 @@ public class EnviaDados extends Thread {
     private final String funcao;
     private final int tempoTimeout = 1000;
     private int cabecalho = 0;
-    private String ultimoAck = "0";
+    private int cbUltimoAck = 0;
 
     public EnviaDados(Semaphore sem, String funcao) {
         super(funcao);
@@ -153,21 +153,22 @@ public class EnviaDados extends Thread {
 			byte[] receiveData = new byte[4];
 			String retorno = "";
                         serverSocket.setSoTimeout(tempoTimeout);
-			while (!retorno.equals("F")) {
+			while (cbUltimoAck != -1) {
                             DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
                             try {
                                 serverSocket.receive(receivePacket);
                                 retorno = new String(receivePacket.getData());
                                 System.out.println("Ack recebido "+ retorno +".");
                                 //serverSocket.setSoTimeout(0);
-                                ultimoAck = retorno;
+                                cbUltimoAck = Integer.parseInt(retorno.trim());
                                 sem.release();
                             } catch (SocketTimeoutException e){
-                                System.out.println("Timeout. Último ACK recebido: " + ultimoAck);
+                                System.out.println("Timeout. Último ACK recebido: " + cbUltimoAck);
                                 sem.release();
-                                reEnviaPct(ultimoAck);
-                            }
+                                //reEnviaPct(ultimoAck);
+                            } 
 			}
+                        serverSocket.setSoTimeout(0);
 		} catch (IOException e) {
 			System.out.println("Excecao: " + e.getMessage());
 		}	break;
