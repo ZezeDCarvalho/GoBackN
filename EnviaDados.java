@@ -16,6 +16,7 @@ import java.util.logging.Logger;
 import java.util.concurrent.Semaphore;
 
 import java.net.SocketTimeoutException;
+import java.util.Arrays;
 
 public class EnviaDados extends Thread {
 
@@ -24,12 +25,16 @@ public class EnviaDados extends Thread {
     private final int portaLocalRecebimento = 2003;
     Semaphore sem;
     private final String funcao;
+    private final int tamanhoPacote = 350;
     private final int tempoTimeout = 1000;
     private int cabecalho = 0;
     private int cbUltimoAck = 0;
+    
+    private volatile int[][] janelaEnvio;
 
     public EnviaDados(Semaphore sem, String funcao) {
         super(funcao);
+        this.janelaEnvio = new int[4][tamanhoPacote];
         this.sem = sem;
         this.funcao = funcao;
     }
@@ -65,56 +70,18 @@ public class EnviaDados extends Thread {
         }
     }
     
-    private void reEnviaPct(String idAck) {
-        //variavel onde os dados lidos serao gravados
-                int[] dados = new int[350];
-                //contador, para gerar pacotes com 1400 Bytes de tamanho
-                //como cada int ocupa 4 Bytes, estamos lendo blocos com 350
-                //int's por vez.
-                int cont = 0;
-
-                try (FileInputStream fileInput = new FileInputStream("entrada");) {
-                    int lido;
-                    while ((lido = fileInput.read()) != -1) {
-                        if (cont == 0){
-                            dados[cont++] = ++cabecalho;
-                        }
-                        dados[cont] = lido;
-                        cont++;
-                        if (cont == 350) {
-                            //envia pacotes a cada 350 int's lidos.
-                            //ou seja, 1400 Bytes.
-                            if (Integer.toString(this.cabecalho).equals(idAck)) {
-                                System.out.println("Re-enviando pacote: "+this.cabecalho);
-                                enviaPct(dados);
-                                break;
-                            }
-                            cont = 0;
-                        }
-                    }
-
-                    //ultimo pacote eh preenchido com
-                    //-1 ate o fim, indicando que acabou
-                    //o envio dos dados.
-                    for (int i = cont; i < 350; i++) {
-                        dados[i] = -1;
-                    }
-                    System.out.println("Sequência: "+cabecalho);
-                    enviaPct(dados);
-                } catch (IOException e) {
-                    System.out.println("Error message: " + e.getMessage());
-                }
-    }
+    
 
     @Override
     public void run() {
 
         switch (this.getFuncao()) {
             case "envia":
+                //janelaEnvio = new int[4][tamanhoPacote];
                 //variavel onde os dados lidos serao gravados
-                int[] dados = new int[350];
+                int[] dados = new int[tamanhoPacote];
                 //contador, para gerar pacotes com 1400 Bytes de tamanho
-                //como cada int ocupa 4 Bytes, estamos lendo blocos com 350
+                //como cada int ocupa 4 Bytes, estamos lendo blocos com tamanhoPacote
                 //int's por vez.
                 int cont = 0;
 
@@ -126,11 +93,12 @@ public class EnviaDados extends Thread {
                         }
                         dados[cont] = lido;
                         cont++;
-                        if (cont == 350) {
-                            //envia pacotes a cada 350 int's lidos.
+                        if (cont == tamanhoPacote) {
+                            //envia pacotes a cada tamanhoPacote int's lidos.
                             //ou seja, 1400 Bytes.
-                            System.out.println("Sequência: "+this.cabecalho);
-                            enviaPct(dados);
+                            // System.out.println("Sequência: "+this.cabecalho);
+                            if (salvaPct(dados))
+                                enviaPct(dados);
                             cont = 0;
                         }
                     }
@@ -138,11 +106,12 @@ public class EnviaDados extends Thread {
                     //ultimo pacote eh preenchido com
                     //-1 ate o fim, indicando que acabou
                     //o envio dos dados.
-                    for (int i = cont; i < 350; i++) {
+                    for (int i = cont; i < tamanhoPacote; i++) {
                         dados[i] = -1;
                     }
-                    System.out.println("Sequência: "+cabecalho);
-                    enviaPct(dados);
+                    //System.out.println("Sequência: "+cabecalho);
+                    if (salvaPct(dados))
+                        enviaPct(dados);
                 } catch (IOException e) {
                     System.out.println("Error message: " + e.getMessage());
                 }
@@ -161,11 +130,14 @@ public class EnviaDados extends Thread {
                                 System.out.println("Ack recebido "+ retorno +".");
                                 //serverSocket.setSoTimeout(0);
                                 cbUltimoAck = Integer.parseInt(retorno.trim());
+                                apagaPct(cbUltimoAck);
                                 sem.release();
                             } catch (SocketTimeoutException e){
-                                System.out.println("Timeout. Último ACK recebido: " + cbUltimoAck);
                                 sem.release();
-                                //reEnviaPct(ultimoAck);
+                                System.out.println("Timeout. Último ACK recebido: " + cbUltimoAck);
+                                reEnviaPct(cbUltimoAck);
+                                
+                                
                             } 
 			}
                         serverSocket.setSoTimeout(0);
@@ -178,4 +150,47 @@ public class EnviaDados extends Thread {
 	}
                 
     }
+    
+    private void reEnviaPct(int idUltimoAck) {
+        synchronized(this) {
+        for (int[] i : janelaEnvio) {
+            if (i[0] == idUltimoAck+1) {
+                System.out.println("Tentando reenviar pacote: " + (idUltimoAck+1) );
+                enviaPct(i);
+                return;
+                }
+            }
+        }
+    }
+    
+    private void apagaPct(int ackConfirmado) {
+        int[] dados = new int[tamanhoPacote];
+        synchronized(this) {
+        for (int i = 0; i < janelaEnvio.length; i++) {
+            System.out.println(Arrays.toString(janelaEnvio[i]) );
+            if (janelaEnvio[i][0] == ackConfirmado) {
+                janelaEnvio[i] = dados;
+                System.out.println("Dados removidos em " + i);
+                return;
+                }
+            }
+        }
+    }
+    
+    private boolean salvaPct(int[] dados) {
+        System.out.println(Arrays.toString(dados) );
+        synchronized(this) {
+        for (int i = 0; i < janelaEnvio.length; i++) {
+            if (janelaEnvio[i][0] == 0) {
+                janelaEnvio[i] = dados;
+                System.out.println("Dados salvos em " + i);
+                return true;
+                }
+            }
+        System.out.println("Janela de envio cheia.");
+        return false;
+        }
+    }
+    
+    
 }
