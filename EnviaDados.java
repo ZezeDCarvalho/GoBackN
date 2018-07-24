@@ -23,14 +23,20 @@ public class EnviaDados extends Thread {
     private final int portaLocalEnvio = 2000;
     private final int portaDestino = 2001;
     private final int portaLocalRecebimento = 2003;
-    Semaphore sem;
     private final String funcao;
+    
+    // constantes do projeto.
     private static final int tamanhoPacote = 350;
+    private static final int tamanhoJanela = 3;
     private final int tempoTimeout = 1000;
+
+    // variáveis do projeto
     private int cabecalho = 0;
     private int cbUltimoAck = 0;
     
-    private static int[][] janelaEnvio = new int[4][tamanhoPacote];
+    Semaphore sem;
+    private static int[][] janelaEnvio = new int[tamanhoJanela][tamanhoPacote];
+
 
     public EnviaDados(Semaphore sem, String funcao) {
         super(funcao);
@@ -96,8 +102,14 @@ public class EnviaDados extends Thread {
                             //envia pacotes a cada tamanhoPacote int's lidos.
                             //ou seja, 1400 Bytes.
                             // System.out.println("Sequência: "+this.cabecalho);
-                            if (salvaPct(dados))
-                                enviaPct(dados);
+
+                            while (!salvaPct(dados)) {
+                                try {
+                                this.sleep(100);
+                                } catch(InterruptedException e) 
+                                {}
+                            }
+                            enviaPct(dados);
                             cont = 0;
                         }
                     }
@@ -108,9 +120,16 @@ public class EnviaDados extends Thread {
                     for (int i = cont; i < tamanhoPacote; i++) {
                         dados[i] = -1;
                     }
-                    //System.out.println("Sequência: "+cabecalho);
-                    if (salvaPct(dados))
+
+                  //System.out.println("Sequência: "+cabecalho);
+                    while (!salvaPct(dados)) {
+                            try {
+                            this.sleep(100);
+                            } catch(InterruptedException e) 
+                            {}
+                        }
                         enviaPct(dados);
+
                 } catch (IOException e) {
                     System.out.println("Error message: " + e.getMessage());
                 }
@@ -132,11 +151,11 @@ public class EnviaDados extends Thread {
                                 apagaPct(cbUltimoAck);
                                 sem.release();
                             } catch (SocketTimeoutException e){
-                                sem.release();
+
                                 System.out.println("Timeout. Último ACK recebido: " + cbUltimoAck);
                                 reEnviaPct(cbUltimoAck);
-                                
-                                
+                                sem.release();
+
                             } 
 			}
                         serverSocket.setSoTimeout(0);
@@ -166,22 +185,29 @@ public class EnviaDados extends Thread {
         int[] dados = new int[tamanhoPacote];
         synchronized(this) {
         for (int i = 0; i < janelaEnvio.length; i++) {
-            System.out.println(Arrays.toString(janelaEnvio[i]) );
+            //System.out.println(Arrays.toString(janelaEnvio[i]) );
+            //System.out.println("Janela 0 = " + janelaEnvio[i][0] );
             if (janelaEnvio[i][0] == ackConfirmado) {
+                System.out.println("Dados do pacote " + janelaEnvio[i][0] + " removidos da janela: " + i);
                 janelaEnvio[i] = dados;
-                System.out.println("Dados removidos em " + i);
+
                 }
             }
         }
     }
     
     private boolean salvaPct(int[] dados) {
-        System.out.println(Arrays.toString(dados) );
+
+        //System.out.println(Arrays.toString(dados) );
+        //System.out.println(dados[0] );
+
         synchronized(this) {
         for (int i = 0; i < janelaEnvio.length; i++) {
             if (janelaEnvio[i][0] == 0) {
                 janelaEnvio[i] = dados;
-                System.out.println("Dados salvos em " + i);
+
+                System.out.println("Dados do pacote " + janelaEnvio[i][0] + " salvos na janela: " + i);
+
                 return true;
                 }
             }
