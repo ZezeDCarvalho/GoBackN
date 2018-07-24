@@ -24,8 +24,11 @@ public class RecebeDados extends Thread {
     private final int portaLocalReceber = 2001;
     private final int portaLocalEnviar = 2002;
     private final int portaDestino = 2003;
-    private final double probalidadePerdaPct = 0.9;
+
+    // variáveis usadas no projeto
+    private final double probalidadePerdaPct = 0.8;
     private Random aleatorio = new Random();
+    private int cbEsperado = 1;
 
     private void enviaAck(boolean fim, int cabecalho) {
         try {
@@ -65,8 +68,13 @@ public class RecebeDados extends Thread {
                         byte[] tmp = receivePacket.getData();
 
                         int cabecalho = (((int) tmp[0]) << 12) + (((int) tmp[1]) << 8) + (((int) tmp[2]) << 4) + ((int) tmp[3]);
-
-                        System.out.println("dado recebido "+ cabecalho);
+                        
+                        if (cabecalho != cbEsperado) {
+                            System.out.println("pacote recebido e descartado: "+ cabecalho);
+                            System.out.println("pacote esperado: "+ cbEsperado);
+                            enviaAck(false, cbEsperado);
+                        } else {
+                        System.out.println("pacote recebido e confirmado: "+ cabecalho);
 
                         //probabilidade de 60% de perder
                         //gero um numero aleatorio contido entre [0,1]
@@ -84,11 +92,12 @@ public class RecebeDados extends Thread {
                             }
                             fileOutput.write(dados);
                         }
+                        cbEsperado++;
                         enviaAck(fim, cabecalho);
-                        continue;
+                        }
                     } else {
-                        System.out.println("dado não recebido");
-                        continue;
+                        System.out.println("Pacote falhou em ser recebido.");
+
                     }
                         
                 }
