@@ -24,7 +24,7 @@ public class RecebeDados extends Thread {
     private final int portaLocalReceber = 2001;
     private final int portaLocalEnviar = 2002;
     private final int portaDestino = 2003;
-    
+
     // variáveis usadas no projeto
     private final double probalidadePerdaPct = 0.8;
     private Random aleatorio = new Random();
@@ -97,6 +97,7 @@ public class RecebeDados extends Thread {
                         }
                     } else {
                         System.out.println("Pacote falhou em ser recebido.");
+
                     }
                         
                 }
