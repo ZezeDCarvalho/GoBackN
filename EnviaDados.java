@@ -25,16 +25,15 @@ public class EnviaDados extends Thread {
     private final int portaLocalRecebimento = 2003;
     Semaphore sem;
     private final String funcao;
-    private final int tamanhoPacote = 350;
+    private static final int tamanhoPacote = 350;
     private final int tempoTimeout = 1000;
     private int cabecalho = 0;
     private int cbUltimoAck = 0;
     
-    private volatile int[][] janelaEnvio;
+    private static int[][] janelaEnvio = new int[4][tamanhoPacote];
 
     public EnviaDados(Semaphore sem, String funcao) {
         super(funcao);
-        this.janelaEnvio = new int[4][tamanhoPacote];
         this.sem = sem;
         this.funcao = funcao;
     }
@@ -171,7 +170,6 @@ public class EnviaDados extends Thread {
             if (janelaEnvio[i][0] == ackConfirmado) {
                 janelaEnvio[i] = dados;
                 System.out.println("Dados removidos em " + i);
-                return;
                 }
             }
         }
