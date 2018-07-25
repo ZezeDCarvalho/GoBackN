@@ -7,7 +7,7 @@ package recepcao;
 
 /**
  *
- * @author flavio
+ * @author flavio, zeze, macb
  */
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -36,7 +36,7 @@ public class RecebeDados extends Thread {
             try (DatagramSocket datagramSocket = new DatagramSocket(portaLocalEnviar)) {
                 String sendString = Integer.toString(cabecalho);
                 if (fim) {
-                    sendString = "-1";
+                    sendString = "-999";
                 }
                 byte[] sendData = sendString.getBytes();
 
