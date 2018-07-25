@@ -152,7 +152,7 @@ public class EnviaDados extends Thread {
                                 sem.release();
                             } catch (SocketTimeoutException e){
 
-                                System.out.println("Timeout. Último ACK recebido: " + cbUltimoAck);
+                                System.err.println("Timeout. Último ACK recebido: " + cbUltimoAck);
                                 reEnviaPct(cbUltimoAck);
                                 sem.release();
 
@@ -173,7 +173,7 @@ public class EnviaDados extends Thread {
         synchronized(this) {
         for (int[] i : janelaEnvio) {
             if (i[0] == idUltimoAck+1) {
-                System.out.println("Tentando reenviar pacote: " + (idUltimoAck+1) );
+                System.err.println("Tentando reenviar pacote: " + (idUltimoAck+1) );
                 enviaPct(i);
                 return;
                 }
