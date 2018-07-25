@@ -1,7 +1,7 @@
 package envio;
 
 /**
- * @author flavio
+ * @author flavio, zeze, macb
  */
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -140,7 +140,7 @@ public class EnviaDados extends Thread {
 			byte[] receiveData = new byte[4];
 			String retorno = "";
                         serverSocket.setSoTimeout(tempoTimeout);
-			while (cbUltimoAck != -1) {
+			while (cbUltimoAck != -999) {
                             DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
                             try {
                                 serverSocket.receive(receivePacket);
@@ -197,17 +197,14 @@ public class EnviaDados extends Thread {
     }
     
     private boolean salvaPct(int[] dados) {
-
+        dados = Arrays.copyOf(dados, dados.length);
         //System.out.println(Arrays.toString(dados) );
         //System.out.println(dados[0] );
-
         synchronized(this) {
         for (int i = 0; i < janelaEnvio.length; i++) {
             if (janelaEnvio[i][0] == 0) {
                 janelaEnvio[i] = dados;
-
                 System.out.println("Dados do pacote " + janelaEnvio[i][0] + " salvos na janela: " + i);
-
                 return true;
                 }
             }
