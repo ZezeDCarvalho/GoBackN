@@ -26,7 +26,7 @@ public class RecebeDados extends Thread {
     private final int portaDestino = 2003;
 
     // variáveis usadas no projeto
-    private final double probalidadePerdaPct = 0.8;
+    private final double probalidadePerdaPct = 0.0;
     private Random aleatorio = new Random();
     private int cbEsperado = 1;
 
@@ -67,7 +67,7 @@ public class RecebeDados extends Thread {
 
                         byte[] tmp = receivePacket.getData();
 
-                        int cabecalho = (((int) tmp[0]) << 12) + (((int) tmp[1]) << 8) + (((int) tmp[2]) << 4) + ((int) tmp[3]);
+                        int cabecalho = ((tmp[0] & 0xff) << 24) + ((tmp[1] & 0xff) << 16) + ((tmp[2] & 0xff) << 8) + ((tmp[3] & 0xff));
                         
                         if (cabecalho != cbEsperado) {
                             System.err.println("pacote recebido e descartado: "+ cabecalho);
