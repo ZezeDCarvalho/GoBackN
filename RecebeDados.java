@@ -70,8 +70,8 @@ public class RecebeDados extends Thread {
                         int cabecalho = (((int) tmp[0]) << 12) + (((int) tmp[1]) << 8) + (((int) tmp[2]) << 4) + ((int) tmp[3]);
                         
                         if (cabecalho != cbEsperado) {
-                            System.out.println("pacote recebido e descartado: "+ cabecalho);
-                            System.out.println("pacote esperado: "+ cbEsperado);
+                            System.err.println("pacote recebido e descartado: "+ cabecalho);
+                            System.err.println("pacote esperado: "+ cbEsperado);
                             enviaAck(false, cbEsperado);
                         } else {
                         System.out.println("pacote recebido e confirmado: "+ cabecalho);
@@ -96,7 +96,7 @@ public class RecebeDados extends Thread {
                         enviaAck(fim, cabecalho);
                         }
                     } else {
-                        System.out.println("Pacote falhou em ser recebido.");
+                        System.err.println("Pacote falhou em ser recebido.");
 
                     }
                         
