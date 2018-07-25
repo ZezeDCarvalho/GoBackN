@@ -26,9 +26,11 @@ public class RecebeDados extends Thread {
     private final int portaDestino = 2003;
 
     // variáveis usadas no projeto
-    private final double probalidadePerdaPct = 0.0;
+    private final double probalidadePerdaPct = 0.5;
     private Random aleatorio = new Random();
     private int cbEsperado = 1;
+    
+    private static int pctPerdido=0, pctDescartado=0, pctRecebido=0, contAckEnv=0;
 
     private void enviaAck(boolean fim, int cabecalho) {
         try {
@@ -44,6 +46,7 @@ public class RecebeDados extends Thread {
                         sendData, sendData.length, address, portaDestino);
 
                 datagramSocket.send(packet);
+                contAckEnv++;
             }
         } catch (SocketException ex) {
             Logger.getLogger(RecebeDados.class.getName()).log(Level.SEVERE, null, ex);
@@ -68,42 +71,60 @@ public class RecebeDados extends Thread {
                         byte[] tmp = receivePacket.getData();
 
                         int cabecalho = ((tmp[0] & 0xff) << 24) + ((tmp[1] & 0xff) << 16) + ((tmp[2] & 0xff) << 8) + ((tmp[3] & 0xff));
-                        
+
                         if (cabecalho != cbEsperado) {
-                            System.err.println("pacote recebido e descartado: "+ cabecalho);
-                            System.err.println("pacote esperado: "+ cbEsperado);
+                            System.err.println("pacote recebido e descartado: " + cabecalho);
+                            System.err.println("pacote esperado: " + cbEsperado);
+                            pctDescartado++;
                             enviaAck(false, cbEsperado);
                         } else {
-                        System.out.println("pacote recebido e confirmado: "+ cabecalho);
+                            System.out.println("pacote recebido e confirmado: " + cabecalho);
+                            pctRecebido++;
 
-                        //probabilidade de 60% de perder
-                        //gero um numero aleatorio contido entre [0,1]
-                        //se numero cair no intervalo [0, 0,6)
-                        //significa perda, logo, você não envia ACK
-                        //para esse pacote, e não escreve ele no arquivo saida.
-                        //se o numero cair no intervalo [0,6, 1,0]
-                        //assume-se o recebimento com sucesso.
-                        for (int i = 4; i < tmp.length; i = i + 4) {
-                            int dados = ((tmp[i] & 0xff) << 24) + ((tmp[i + 1] & 0xff) << 16) + ((tmp[i + 2] & 0xff) << 8) + ((tmp[i + 3] & 0xff));
+                            //probabilidade de 60% de perder
+                            //gero um numero aleatorio contido entre [0,1]
+                            //se numero cair no intervalo [0, 0,6)
+                            //significa perda, logo, você não envia ACK
+                            //para esse pacote, e não escreve ele no arquivo saida.
+                            //se o numero cair no intervalo [0,6, 1,0]
+                            //assume-se o recebimento com sucesso.
+                            for (int i = 4; i < tmp.length; i = i + 4) {
+                                int dados = ((tmp[i] & 0xff) << 24) + ((tmp[i + 1] & 0xff) << 16) + ((tmp[i + 2] & 0xff) << 8) + ((tmp[i + 3] & 0xff));
 
-                            if (dados == -1) {
-                                fim = true;
-                                break;
+                                if (dados == -1) {
+                                    fim = true;
+                                    break;
+                                }
+                                fileOutput.write(dados);
                             }
-                            fileOutput.write(dados);
-                        }
-                        cbEsperado++;
-                        enviaAck(fim, cabecalho);
+                            cbEsperado++;
+                            enviaAck(fim, cabecalho);
                         }
                     } else {
                         System.err.println("Pacote falhou em ser recebido.");
+                        try {
+                            pctPerdido++;
+                            this.sleep(100);
+                        } catch (InterruptedException e) {
+                        }
 
                     }
-                        
+
                 }
             }
         } catch (IOException e) {
             System.out.println("Excecao: " + e.getMessage());
         }
+        System.out.println(this.relatorio(pctPerdido, pctDescartado, pctRecebido, contAckEnv));
+    }
+
+    public String relatorio(int perdido, int descartado, int recebido, int acksenviados) {
+        String dados = "Relátorio de recebimento:\n";
+        dados += "-----------------------------";
+        dados += "\nPacotes perdidos: " + perdido;
+        dados += "\nPacotes descartados:" + descartado;
+        dados += "\nPacotes recebidos:" + recebido;
+        dados += "\nAck's enviados:" + acksenviados;
+        return dados;
     }
 }
